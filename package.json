@@ -1,6 +1,6 @@
 {
   "name": "n8n-nodes-excel",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "An n8n node to handle local Excel and CSV files like a database, allowing you to create, read, update, and delete data within your workflows.",
   "license": "MIT",
   "author": {
@@ -11,7 +11,7 @@
     "type": "git",
     "url": "https://github.com/dante/n8n-nodes-excel.git"
   },
-  "main": "dist/nodes/Excel/Excel.node.js",
+  "main": "dist/Excel/Excel.node.js",
   "scripts": {
     "build": "tsc && gulp build:icons",
     "dev": "tsc --watch",
@@ -25,7 +25,7 @@
   "n8n": {
     "n8nNodesApiVersion": 1,
     "nodes": [
-      "dist/nodes/Excel/Excel.node.js"
+      "dist/Excel/Excel.node.js"
     ]
   },
   "dependencies": {
