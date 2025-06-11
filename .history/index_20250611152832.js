@@ -1,0 +1,249 @@
+const express = require('express');
+const xlsx = require('xlsx');
+const path = require('path');
+const fs = require('fs');
+const cors = require('cors');
+const multer = require('multer');
+
+const app = express();
+const port = 3000;
+
+// Excel 파일을 저장하고 관리할 기본 디렉토리
+const dataDir = path.join(__dirname, 'data');
+
+// 서버 시작 시 data 디렉토리가 없으면 생성
+if (!fs.existsSync(dataDir)) {
+    fs.mkdirSync(dataDir, { recursive: true });
+}
+
+// Multer 설정: data 디렉토리에 원본 파일 이름으로 저장
+const storage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        cb(null, dataDir)
+    },
+    filename: function (req, file, cb) {
+        // 파일 이름이 중복될 경우 덮어쓰지 않도록 처리합니다.
+        // 여기서는 간단하게 원본 이름을 사용하지만, 실제 프로덕션에서는
+        // 중복을 피하기 위해 파일 이름에 타임스탬프 등을 추가하는 것이 좋습니다.
+        cb(null, file.originalname)
+    }
+});
+const upload = multer({ storage: storage });
+
+app.use(cors());
+app.use(express.json());
+
+app.get('/files', (req, res) => {
+    try {
+        const files = fs.readdirSync(dataDir).filter(file =>
+            path.extname(file).toLowerCase() === '.xlsx'
+        );
+        res.json(files);
+    } catch (error) {
+        console.error(error);
+        res.status(500).send('파일 목록을 가져오는 중 오류가 발생했습니다.');
+    }
+});
+
+/**
+ * @api {post} /upload 로컬 파일을 서버에 업로드
+ * @apiDescription 로컬 컴퓨터의 Excel 파일을 서버의 data 디렉토리에 업로드합니다.
+ * @apiName UploadExcel
+ * @apiGroup LocalExcelDB
+ */
+app.post('/upload', upload.single('excel'), (req, res) => {
+    if (!req.file) {
+        return res.status(400).send('업로드할 파일이 없습니다.');
+    }
+    res.json({ message: `파일이 성공적으로 업로드되었습니다: ${req.file.filename}` });
+});
+
+/**
+ * @api {get} /download/:fileName 서버의 파일을 다운로드
+ * @apiDescription 서버 data 디렉토리의 지정된 파일을 다운로드합니다.
+ * @apiName DownloadExcel
+ * @apiGroup LocalExcelDB
+ */
+app.get('/download/:fileName', (req, res) => {
+    const { fileName } = req.params;
+    const filePath = path.join(dataDir, fileName);
+
+    if (fs.existsSync(filePath)) {
+        res.download(filePath, fileName, (err) => {
+            if (err) {
+                console.error("File download error:", err);
+                res.status(500).send('파일 다운로드 중 오류가 발생했습니다.');
+            }
+        });
+    } else {
+        res.status(404).send('파일을 찾을 수 없습니다.');
+    }
+});
+
+/**
+ * @api {post} /delete 서버의 파일 삭제
+ * @apiDescription 서버 data 디렉토리의 지정된 파일을 삭제합니다.
+ * @apiName DeleteExcel
+ * @apiGroup LocalExcelDB
+ */
+app.post('/delete', (req, res) => {
+    const { fileName } = req.body;
+    if (!fileName) {
+        return res.status(400).send('삭제할 파일 이름을 제공해야 합니다.');
+    }
+    const filePath = path.join(dataDir, fileName);
+
+    if (fs.existsSync(filePath)) {
+        try {
+            fs.unlinkSync(filePath);
+            res.json({ message: `파일이 성공적으로 삭제되었습니다: ${fileName}` });
+        } catch (error) {
+            console.error(error);
+            res.status(500).send('파일 삭제 중 오류가 발생했습니다.');
+        }
+    } else {
+        res.status(404).send('삭제할 파일을 찾을 수 없습니다.');
+    }
+});
+
+// 기본 라우트
+app.get('/', (req, res) => {
+    res.send('로컬 Excel 파일 DB API 서버가 실행중입니다.');
+});
+
+/**
+ * @api {post} /read 로컬 Excel 파일 읽기
+ * @apiDescription 지정된 Excel 파일을 읽어 JSON 레코드 배열로 반환합니다.
+ * @apiName ReadExcel
+ * @apiGroup LocalExcelDB
+ *
+ * @apiParam {Object} body Request body.
+ * @apiParam {String} body.fileName data 디렉토리 내의 Excel 파일 이름.
+ *
+ * @apiSuccess {Object[]} data Excel 파일의 첫번째 시트 데이터.
+ */
+app.post('/read', (req, res) => {
+    const { fileName } = req.body;
+    if (!fileName) {
+        return res.status(400).send('fileName을 제공해야 합니다.');
+    }
+
+    const filePath = path.join(dataDir, fileName);
+
+    try {
+        if (!fs.existsSync(filePath)) {
+            return res.status(404).send('파일을 찾을 수 없습니다.');
+        }
+
+        const workbook = xlsx.readFile(filePath);
+        const sheetName = workbook.SheetNames[0];
+        const sheet = workbook.Sheets[sheetName];
+        const data = xlsx.utils.sheet_to_json(sheet);
+
+        res.json(data);
+    } catch (error) {
+        console.error(error);
+        res.status(500).send('파일 처리 중 오류가 발생했습니다.');
+    }
+});
+
+/**
+ * @api {post} /create 로컬에 Excel 파일 생성
+ * @apiDescription CSV 형식의 데이터 문자열을 받아 새로운 Excel 파일을 생성하고 서버의 data 디렉토리에 저장합니다.
+ * @apiName CreateExcel
+ * @apiGroup LocalExcelDB
+ *
+ * @apiParam {Object} body Request body.
+ * @apiParam {String} body.fileName 생성할 파일 이름.
+ * @apiParam {String} body.csvData CSV 형식의 데이터 문자열. 첫 줄은 헤더로 사용됩니다.
+ *
+ * @apiSuccess {String} message 성공 메시지.
+ */
+app.post('/create', (req, res) => {
+    try {
+        const { fileName, csvData } = req.body;
+
+        if (!fileName || !csvData) {
+            return res.status(400).send('fileName과 csvData를 제공해야 합니다.');
+        }
+
+        const filePath = path.join(dataDir, fileName);
+        if (fs.existsSync(filePath)) {
+            return res.status(409).send('이미 해당 이름의 파일이 존재합니다.');
+        }
+
+        // CSV 데이터를 파싱하여 2차원 배열로 변환합니다.
+        // 참고: 이 파서는 간단한 CSV만 지원하며, 쉼표를 포함한 셀은 처리하지 못할 수 있습니다.
+        const rows = csvData.trim().split('\n');
+        const aoa = rows.map(row => row.split(','));
+
+        const workbook = xlsx.utils.book_new();
+        const sheet = xlsx.utils.aoa_to_sheet(aoa);
+        xlsx.utils.book_append_sheet(workbook, sheet, 'Sheet1');
+
+        xlsx.writeFile(workbook, filePath);
+
+        res.status(201).json({ message: `파일이 성공적으로 생성되었습니다: ${fileName}` });
+
+    } catch (error) {
+        console.error(error);
+        res.status(500).send('파일 생성 중 오류가 발생했습니다.');
+    }
+});
+
+/**
+ * @api {post} /modify 로컬 Excel 파일 수정
+ * @apiDescription CSV 형식의 데이터 문자열을 받아 기존 Excel 파일의 특정 위치에 데이터를 쓰거나 수정합니다.
+ * @apiName ModifyExcel
+ * @apiGroup LocalExcelDB
+ *
+ * @apiParam {Object} body Request body.
+ * @apiParam {String} body.fileName 수정할 파일 이름.
+ * @apiParam {String} body.csvData 파일에 쓸 CSV 형식의 데이터.
+ * @apiParam {String} [body.sheet] (선택) 수정할 시트 이름. 없으면 첫 번째 시트.
+ * @apiParam {String} [body.origin="A1"] (선택) 데이터 쓰기를 시작할 셀 주소.
+ *
+ * @apiSuccess {String} message 성공 메시지.
+ */
+app.post('/modify', (req, res) => {
+    const { fileName, csvData, sheet: sheetNameParam, origin } = req.body;
+
+    if (!fileName || !csvData) {
+        return res.status(400).send('fileName과 csvData를 제공해야 합니다.');
+    }
+
+    const filePath = path.join(dataDir, fileName);
+
+    try {
+        if (!fs.existsSync(filePath)) {
+            return res.status(404).send('수정할 파일을 찾을 수 없습니다.');
+        }
+
+        // CSV 데이터를 파싱하여 2차원 배열로 변환합니다.
+        const rows = csvData.trim().split('\n');
+        const aoa = rows.map(row => row.split(','));
+
+        const workbook = xlsx.readFile(filePath);
+        const sheetName = sheetNameParam || workbook.SheetNames[0];
+        let sheet = workbook.Sheets[sheetName];
+
+        if (!sheet) {
+            sheet = xlsx.utils.aoa_to_sheet([]);
+            xlsx.utils.book_append_sheet(workbook, sheet, sheetName);
+        }
+
+        xlsx.utils.sheet_add_aoa(sheet, aoa, { origin: origin || 'A1' });
+        xlsx.writeFile(workbook, filePath);
+
+        res.json({ message: `파일이 성공적으로 수정되었습니다: ${fileName}` });
+
+    } catch (error) {
+        console.error(error);
+        res.status(500).send('파일 수정 중 오류가 발생했습니다.');
+    }
+});
+
+app.listen(port, () => {
+    console.log(`서버가 http://localhost:${port} 에서 실행중입니다.`);
+    console.log(`Excel 파일은 '${dataDir}' 디렉토리에서 관리됩니다.`);
+}); 
