@@ -1,6 +1,6 @@
 {
   "name": "n8n-nodes-excel",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "An n8n node to handle local Excel and CSV files like a database, allowing you to create, read, update, and delete data within your workflows.",
   "license": "MIT",
   "author": {
@@ -13,7 +13,8 @@
   },
   "main": "dist/nodes/Excel/Excel.node.js",
   "scripts": {
-    "build": "tsc && gulp build:icons",
+    "build": "npm run clean && tsc && gulp build:icons",
+    "clean": "rimraf dist",
     "dev": "tsc --watch",
     "lint": "eslint nodes --ext .js,.ts",
     "lint:fix": "eslint nodes --ext .js,.ts --fix",
@@ -44,6 +45,7 @@
     "n8n-core": "*",
     "n8n-workflow": "*",
     "prettier": "^3.2.5",
+    "rimraf": "^5.0.5",
     "ts-jest": "^29.1.2",
     "ts-node": "^10.9.2",
     "typescript": "~4.8.4"

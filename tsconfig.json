@@ -1,16 +1,26 @@
 {
   "compilerOptions": {
-    "target": "es2021",
+    "target": "es2019",
     "module": "commonjs",
-    "outDir": "dist",
-    "rootDir": ".",
+    "moduleResolution": "node",
+    "declaration": true,
     "strict": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "noImplicitThis": true,
+    "alwaysStrict": true,
     "noUnusedLocals": false,
     "noUnusedParameters": false,
     "noImplicitReturns": true,
-    "noFallthroughCasesInSwitch": true,
+    "noFallthroughCasesInSwitch": false,
+    "inlineSourceMap": true,
+    "inlineSources": true,
+    "experimentalDecorators": true,
+    "strictPropertyInitialization": false,
     "esModuleInterop": true,
-    "declaration": true
+    "skipLibCheck": true,
+    "outDir": "dist",
+    "rootDir": "nodes"
   },
   "include": [
     "nodes/**/*.ts"
