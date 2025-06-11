@@ -1,0 +1,7 @@
+# Ignore node_modules to prevent n8n from scanning it for nodes
+node_modules
+
+# Ignore other common directories
+dist
+.git
+.vscode 
