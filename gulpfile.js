@@ -1,8 +1,8 @@
 const gulp = require('gulp');
 
-function copyIcons() {
-    return gulp.src('nodes/**/*.svg')
-        .pipe(gulp.dest('dist/nodes'));
+function copyAssets() {
+    return gulp.src('nodes/**/*.{png,svg}')
+        .pipe(gulp.dest('dist'));
 }
 
-gulp.task('build:icons', copyIcons); 
+gulp.task('build:icons', copyAssets); 
