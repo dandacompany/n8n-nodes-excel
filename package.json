@@ -1,16 +1,33 @@
 {
   "name": "n8n-nodes-excel",
-  "version": "1.2.5",
+  "version": "1.2.6",
   "description": "An n8n node to handle local Excel and CSV files like a database, with AI Agent Tool compatibility. Create, read, update, and delete data within your workflows. Works as both a regular action node and an AI Agent tool.",
   "license": "MIT",
   "author": {
-    "name": "dante",
-    "email": ""
+    "name": "Dante",
+    "email": "datapod.k@gmail.com",
+    "url": "https://dante-datalab.com"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/dante/n8n-nodes-excel.git"
+    "url": "https://github.com/dandacompany/n8n-nodes-excel.git"
   },
+  "homepage": "https://github.com/dandacompany/n8n-nodes-excel",
+  "bugs": {
+    "url": "https://github.com/dandacompany/n8n-nodes-excel/issues"
+  },
+  "keywords": [
+    "n8n",
+    "n8n-node",
+    "excel",
+    "csv",
+    "spreadsheet",
+    "data",
+    "workflow",
+    "automation",
+    "ai-agent",
+    "tool"
+  ],
   "main": "dist/Excel/Excel.node.js",
   "scripts": {
     "build": "npm run clean && tsc && gulp build:icons",

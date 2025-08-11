@@ -213,6 +213,38 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
+```
+MIT License
+
+Copyright (c) 2024 Dante Labs
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+## 👨‍💻 Developer Information
+
+- **Name**: Dante
+- **Company**: Dante Labs
+- **Email**: datapod.k@gmail.com
+- **Company Homepage**: [https://dante-datalab.com](https://dante-datalab.com)
+- **YouTube**: [https://youtube.com/@dante-labs](https://youtube.com/@dante-labs)
+
 ## 🙏 Acknowledgments
 
 - Built for the [n8n](https://n8n.io) workflow automation platform
@@ -224,6 +256,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **Issues**: [GitHub Issues](https://github.com/dandacompany/n8n-nodes-excel/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/dandacompany/n8n-nodes-excel/discussions)
 - **n8n Community**: [n8n Community Forum](https://community.n8n.io)
+- **Developer Contact**: datapod.k@gmail.com
 
 ## 🌟 Star History
 
@@ -231,4 +264,4 @@ If you find this node useful, please consider giving it a star on GitHub!
 
 ---
 
-**Made with ❤️ for the n8n community**
+**Made with ❤️ by Dante Labs for the n8n community**
