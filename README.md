@@ -189,7 +189,17 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## 📝 Changelog
 
-### v1.2.4 (Latest)
+### v1.2.6 (Latest)
+- Fixed repository and homepage URLs
+- Added developer information and contact details
+- Added keywords for better npm discoverability
+- Added full MIT license text
+
+### v1.2.5
+- Enhanced README with comprehensive English documentation
+- Added detailed usage examples and badges
+
+### v1.2.4
 - Added dynamic column dropdown for filters and sorting
 - Improved CSV file handling for column detection
 

@@ -93,3 +93,6 @@ ref/*
 .cursor/
 .history/
 data/
+.history
+.cursor
+.claude
