@@ -276,7 +276,7 @@ export class Excel implements INodeType {
 					}
 				},
 				typeOptions: {
-					loadOptionsMethod: 'getSheetNames',
+					loadOptionsMethod: 'getSheets',
 					loadOptionsDependsOn: ['fileName'],
 					allowCustomValue: true,
 				},
@@ -672,7 +672,7 @@ export class Excel implements INodeType {
 				const files = fs.readdirSync(dataDir).filter(f => f.toLowerCase().endsWith('.xlsx') || f.toLowerCase().endsWith('.csv'));
 				return files.map(file => ({ name: file, value: file }));
 			},
-			async getSheetNames(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
+			async getSheets(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
 				const fileName = this.getCurrentNodeParameter('fileName') as string;
 				if (!fileName || !fileName.toLowerCase().endsWith('.xlsx')) return [];
 				const filePath = path.join(dataDir, fileName);
