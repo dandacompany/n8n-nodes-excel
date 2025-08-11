@@ -669,67 +669,121 @@ export class Excel implements INodeType {
 	methods = {
 		loadOptions: {
 			async getFiles(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
-				const files = fs.readdirSync(dataDir).filter(f => f.toLowerCase().endsWith('.xlsx') || f.toLowerCase().endsWith('.csv'));
-				return files.map(file => ({ name: file, value: file }));
-			},
-			async getSheets(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
-				const fileName = this.getCurrentNodeParameter('fileName') as string;
-				if (!fileName || !fileName.toLowerCase().endsWith('.xlsx')) return [];
-				const filePath = path.join(dataDir, fileName);
-				if (!fs.existsSync(filePath)) return [];
 				try {
-					const workbook = XLSX.readFile(filePath);
-					return workbook.SheetNames.map(name => ({ name: name, value: name }));
-				} catch (e) {
-					return [];
-				}
-			},
-			async getFieldsAsOptions(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
-				const fileName = this.getCurrentNodeParameter('fileName') as string;
-				if (!fileName) return [];
-
-				const filePath = path.join(dataDir, fileName);
-				if (!fs.existsSync(filePath)) return [];
-
-				try {
-					const workbook = fileName.toLowerCase().endsWith('.csv') ? await readCsvAsWorkbook(filePath) : XLSX.readFile(filePath);
-					let sheetName = getSheetName(workbook, this.getCurrentNodeParameter('sheetName') as string ?? '');
-
-					if (!sheetName && workbook.SheetNames.length > 0) {
-						sheetName = workbook.SheetNames[0];
+					if (!fs.existsSync(dataDir)) {
+						fs.mkdirSync(dataDir, { recursive: true });
 					}
-
-					if (!sheetName) return [];
-
-					const sheet = workbook.Sheets[sheetName];
-					const headerData = (XLSX.utils.sheet_to_json(sheet, { header: 1 })[0] as string[]) || [];
-					if (!headerData) return [];
-
-					return headerData.filter(h => h).map(h => ({ name: h, value: h }));
-				} catch (e) {
+					const files = fs.readdirSync(dataDir).filter(f => 
+						f.toLowerCase().endsWith('.xlsx') || f.toLowerCase().endsWith('.csv')
+					);
+					return files.map(file => ({ name: file, value: file }));
+				} catch (error) {
+					console.error('Error loading files:', error);
 					return [];
 				}
 			},
-			async getColumns(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
-				const fileName = this.getCurrentNodeParameter('fileName') as string;
-				if (!fileName) return [];
-
-				const filePath = path.join(dataDir, fileName);
-				if (!fs.existsSync(filePath)) return [];
-
+			
+			async getSheets(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
 				try {
-					const workbook = fileName.toLowerCase().endsWith('.csv') ? await readCsvAsWorkbook(filePath) : XLSX.readFile(filePath);
-					let sheetName = fileName.toLowerCase().endsWith('.csv') 
-						? 'Sheet1' 
-						: (this.getCurrentNodeParameter('sheetName') as string || workbook.SheetNames[0]);
-
-					if (!sheetName || !workbook.Sheets[sheetName]) return [];
-
-					const sheet = workbook.Sheets[sheetName];
-					const headerData = (XLSX.utils.sheet_to_json(sheet, { header: 1 })[0] as string[]) || [];
+					const fileName = this.getCurrentNodeParameter('fileName') as string;
+					if (!fileName) {
+						return [{ name: 'Sheet1', value: 'Sheet1' }];
+					}
 					
-					return headerData.filter(h => h).map(h => ({ name: h, value: h }));
-				} catch (e) {
+					// For CSV files, always return Sheet1
+					if (fileName.toLowerCase().endsWith('.csv')) {
+						return [{ name: 'Sheet1', value: 'Sheet1' }];
+					}
+					
+					const filePath = path.join(dataDir, fileName);
+					if (!fs.existsSync(filePath)) {
+						return [{ name: 'Sheet1', value: 'Sheet1' }];
+					}
+					
+					const workbook = XLSX.readFile(filePath);
+					return workbook.SheetNames.map(name => ({ name, value: name }));
+				} catch (error) {
+					console.error('Error loading sheets:', error);
+					return [{ name: 'Sheet1', value: 'Sheet1' }];
+				}
+			},
+			
+			async getFieldsAsOptions(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
+				try {
+					const fileName = this.getCurrentNodeParameter('fileName') as string;
+					if (!fileName) return [];
+					
+					const filePath = path.join(dataDir, fileName);
+					if (!fs.existsSync(filePath)) return [];
+					
+					const workbook = fileName.toLowerCase().endsWith('.csv') 
+						? await readCsvAsWorkbook(filePath) 
+						: XLSX.readFile(filePath);
+					
+					const requestedSheetName = this.getCurrentNodeParameter('sheetName') as string;
+					let sheetName = requestedSheetName || workbook.SheetNames[0] || 'Sheet1';
+					
+					// For CSV files, always use Sheet1
+					if (fileName.toLowerCase().endsWith('.csv')) {
+						sheetName = 'Sheet1';
+					}
+					
+					if (!workbook.Sheets[sheetName]) {
+						return [];
+					}
+					
+					const sheet = workbook.Sheets[sheetName];
+					const jsonData = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+					if (!jsonData || jsonData.length === 0) return [];
+					
+					const headerData = jsonData[0] as string[];
+					if (!headerData) return [];
+					
+					return headerData
+						.filter(h => h !== null && h !== undefined && h !== '')
+						.map(h => ({ name: String(h), value: String(h) }));
+				} catch (error) {
+					console.error('Error loading fields:', error);
+					return [];
+				}
+			},
+			
+			async getColumns(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
+				try {
+					const fileName = this.getCurrentNodeParameter('fileName') as string;
+					if (!fileName) return [];
+					
+					const filePath = path.join(dataDir, fileName);
+					if (!fs.existsSync(filePath)) return [];
+					
+					const workbook = fileName.toLowerCase().endsWith('.csv') 
+						? await readCsvAsWorkbook(filePath) 
+						: XLSX.readFile(filePath);
+					
+					const requestedSheetName = this.getCurrentNodeParameter('sheetName') as string;
+					let sheetName = requestedSheetName || workbook.SheetNames[0] || 'Sheet1';
+					
+					// For CSV files, always use Sheet1
+					if (fileName.toLowerCase().endsWith('.csv')) {
+						sheetName = 'Sheet1';
+					}
+					
+					if (!workbook.Sheets[sheetName]) {
+						return [];
+					}
+					
+					const sheet = workbook.Sheets[sheetName];
+					const jsonData = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+					if (!jsonData || jsonData.length === 0) return [];
+					
+					const headerData = jsonData[0] as string[];
+					if (!headerData) return [];
+					
+					return headerData
+						.filter(h => h !== null && h !== undefined && h !== '')
+						.map(h => ({ name: String(h), value: String(h) }));
+				} catch (error) {
+					console.error('Error loading columns:', error);
 					return [];
 				}
 			},
