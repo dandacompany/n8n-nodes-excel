@@ -16,7 +16,8 @@ A powerful n8n community node that lets you work with Excel (.xlsx) and CSV (.cs
 ### 📊 Data Operations
 - **Read**: Query data with advanced filtering, sorting, and pagination
 - **Add Row**: Insert new records with dynamic column mapping
-- **Update Row**: Modify existing records by key column
+- **Update Rows**: Modify multiple records using filter criteria
+- **Delete Rows**: Remove records matching filter conditions
 - **Clear Data**: Remove all data while preserving headers
 
 ### 🤖 AI Agent Tool Compatibility
@@ -83,11 +84,17 @@ npm install n8n-nodes-excel
    - Sort by: `Date` descending
    - Limit: 10 records
 
-2. **Update Filtered Records**
-   - Use Key Column: `ID`
-   - Update specific fields dynamically
+2. **Update Multiple Records**
+   - Use filters to select rows: `Status` equals `Pending`
+   - Update fields: Set `Status` to `Active`, `ProcessedDate` to today
+   - All matching rows are updated in one operation
 
-3. **Export Results**
+3. **Delete Old Records**
+   - Add filter: `Date` less than `2023-01-01`
+   - Add filter: `Status` equals `Archived`
+   - Removes all matching rows while preserving data structure
+
+4. **Export Results**
    - Download as binary data
    - Pass to other nodes for processing
 
@@ -189,7 +196,13 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## 📝 Changelog
 
-### v1.2.6 (Latest)
+### v1.2.7 (Latest)
+- Added Delete Rows operation with filter-based row deletion
+- Enhanced Update operation to Update Rows with filter-based multi-row updates
+- Improved filter logic with reusable helper function
+- Removed key column dependency in favor of flexible filter criteria
+
+### v1.2.6
 - Fixed repository and homepage URLs
 - Added developer information and contact details
 - Added keywords for better npm discoverability

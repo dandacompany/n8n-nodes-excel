@@ -74,6 +74,51 @@ function writeWorkbook(workbook: XLSX.WorkBook, filePath: string, fileName: stri
 	}
 }
 
+/**
+ * Apply filters to data based on filter conditions
+ */
+function applyFilters(data: IDataObject[], filters: { conditions?: Array<{ column: string; operator: string; value: string; }> }): IDataObject[] {
+	if (!filters.conditions || filters.conditions.length === 0) {
+		return data;
+	}
+	
+	return data.filter(row => {
+		return filters.conditions!.every(filter => {
+			const cellValue = String(row[filter.column] || '');
+			const filterValue = String(filter.value || '');
+			
+			switch (filter.operator) {
+				case 'contains':
+					return cellValue.toLowerCase().includes(filterValue.toLowerCase());
+				case 'notContains':
+					return !cellValue.toLowerCase().includes(filterValue.toLowerCase());
+				case 'equals':
+					return cellValue === filterValue;
+				case 'notEquals':
+					return cellValue !== filterValue;
+				case 'startsWith':
+					return cellValue.toLowerCase().startsWith(filterValue.toLowerCase());
+				case 'endsWith':
+					return cellValue.toLowerCase().endsWith(filterValue.toLowerCase());
+				case 'isEmpty':
+					return cellValue === '' || cellValue === null || cellValue === undefined;
+				case 'isNotEmpty':
+					return cellValue !== '' && cellValue !== null && cellValue !== undefined;
+				case 'greaterThan':
+					return parseFloat(cellValue) > parseFloat(filterValue);
+				case 'lessThan':
+					return parseFloat(cellValue) < parseFloat(filterValue);
+				case 'greaterOrEqual':
+					return parseFloat(cellValue) >= parseFloat(filterValue);
+				case 'lessOrEqual':
+					return parseFloat(cellValue) <= parseFloat(filterValue);
+				default:
+					return true;
+			}
+		});
+	});
+}
+
 export class Excel implements INodeType {
 	description: INodeTypeDescription = {
 		displayName: 'Excel/CSV',
@@ -123,7 +168,8 @@ export class Excel implements INodeType {
 				options: [
 					{ name: 'Read', value: 'read' },
 					{ name: 'Add Row', value: 'addRow' },
-					{ name: 'Update Row', value: 'updateRow' },
+					{ name: 'Update Rows', value: 'updateRows' },
+					{ name: 'Delete Rows', value: 'deleteRows' },
 					{ name: 'Clear Data', value: 'clearData' },
 				],
 				default: 'read',
@@ -387,7 +433,7 @@ export class Excel implements INodeType {
 				displayOptions: {
 					show: {
 						resource: ['data'],
-						operation: ['addRow', 'updateRow'],
+						operation: ['addRow', 'updateRows'],
 						fileName: [{ _cnd: { exists: true } }],
 						sheetName: [{ _cnd: { exists: true } }],
 					},
@@ -747,43 +793,7 @@ Example: {"operation": "read_data", "filename": "data.xlsx", "sheet": "Sheet1", 
 							}>;
 						};
 						
-						if (filters.conditions && filters.conditions.length > 0) {
-							data = data.filter(row => {
-								return filters.conditions!.every(filter => {
-									const cellValue = String(row[filter.column] || '');
-									const filterValue = String(filter.value || '');
-									
-									switch (filter.operator) {
-										case 'contains':
-											return cellValue.toLowerCase().includes(filterValue.toLowerCase());
-										case 'notContains':
-											return !cellValue.toLowerCase().includes(filterValue.toLowerCase());
-										case 'equals':
-											return cellValue === filterValue;
-										case 'notEquals':
-											return cellValue !== filterValue;
-										case 'startsWith':
-											return cellValue.toLowerCase().startsWith(filterValue.toLowerCase());
-										case 'endsWith':
-											return cellValue.toLowerCase().endsWith(filterValue.toLowerCase());
-										case 'isEmpty':
-											return cellValue === '' || cellValue === null || cellValue === undefined;
-										case 'isNotEmpty':
-											return cellValue !== '' && cellValue !== null && cellValue !== undefined;
-										case 'greaterThan':
-											return parseFloat(cellValue) > parseFloat(filterValue);
-										case 'lessThan':
-											return parseFloat(cellValue) < parseFloat(filterValue);
-										case 'greaterOrEqual':
-											return parseFloat(cellValue) >= parseFloat(filterValue);
-										case 'lessOrEqual':
-											return parseFloat(cellValue) <= parseFloat(filterValue);
-										default:
-											return true;
-									}
-								});
-							});
-						}
+						data = applyFilters(data, filters);
 						
 						// Apply sorting
 						const sort = this.getNodeParameter('sort', i, {}) as {
@@ -816,26 +826,33 @@ Example: {"operation": "read_data", "filename": "data.xlsx", "sheet": "Sheet1", 
 						// Apply limit (0 means all rows)
 						const finalData = limit === 0 ? data : data.slice(0, limit);
 						returnData.push(...this.helpers.returnJsonArray(finalData));
-					} else if (operation === 'addRow' || operation === 'updateRow') {
-						const rowDataCollection = this.getNodeParameter('rowData', i) as { entries: Array<{ column: string; value: any; }> };
-						const finalRowData: IDataObject = {};
-						if (rowDataCollection?.entries) {
-							for (const entry of rowDataCollection.entries) {
-								if (entry.column) {
-									finalRowData[entry.column] = entry.value;
+					} else if (operation === 'addRow' || operation === 'updateRows' || operation === 'deleteRows') {
+						let finalRowData: IDataObject = {};
+						let newHeaders: string[] = [];
+						
+						// Only get rowData for addRow and updateRows operations
+						if (operation === 'addRow' || operation === 'updateRows') {
+							const rowDataCollection = this.getNodeParameter('rowData', i) as { entries: Array<{ column: string; value: any; }> };
+							if (rowDataCollection?.entries) {
+								for (const entry of rowDataCollection.entries) {
+									if (entry.column) {
+										finalRowData[entry.column] = entry.value;
+									}
 								}
 							}
 						}
 
-						const data = XLSX.utils.sheet_to_json(sheet) as IDataObject[];
+						let data = XLSX.utils.sheet_to_json(sheet) as IDataObject[];
 						const headerData = (XLSX.utils.sheet_to_json(sheet, { header: 1 })[0] as string[]) || [];
-						const newHeaders = [...headerData];
+						newHeaders = [...headerData];
 
-						Object.keys(finalRowData).forEach(key => {
-							if (!newHeaders.includes(key)) {
-								newHeaders.push(key);
-							}
-						});
+						if (operation === 'addRow' || operation === 'updateRows') {
+							Object.keys(finalRowData).forEach(key => {
+								if (!newHeaders.includes(key)) {
+									newHeaders.push(key);
+								}
+							});
+						}
 
 						if (operation === 'addRow') {
 							data.push(finalRowData);
@@ -843,18 +860,75 @@ Example: {"operation": "read_data", "filename": "data.xlsx", "sheet": "Sheet1", 
 							workbook.Sheets[currentSheetName] = newSheet;
 							writeWorkbook(workbook, filePath, fileName);
 							returnData.push({ json: { success: true, message: 'Row added.' } });
-						} else { // updateRow
-							const keyColumn = this.getNodeParameter('keyColumn', i) as string;
-							const keyValue = this.getNodeParameter('keyValue', i) as string;
-							const rowIndex = data.findIndex(row => String(row[keyColumn]) === String(keyValue));
-
-							if (rowIndex === -1) throw new NodeOperationError(this.getNode(), `Row with ${keyColumn}='${keyValue}' not found.`);
-
-							data[rowIndex] = { ...data[rowIndex], ...finalRowData };
+						} else if (operation === 'updateRows') {
+							// Get filter criteria
+							const updateFilters = this.getNodeParameter('updateFilters', i, {}) as {
+								conditions?: Array<{
+									column: string;
+									operator: string;
+									value: string;
+								}>;
+							};
+							
+							// Find rows to update
+							const rowsToUpdate = applyFilters(data, updateFilters);
+							
+							if (rowsToUpdate.length === 0) {
+								throw new NodeOperationError(this.getNode(), 'No rows found matching the filter criteria.');
+							}
+							
+							// Update matching rows
+							let updatedCount = 0;
+							data = data.map(row => {
+								const isMatch = rowsToUpdate.some(matchRow => {
+									// Check if this is the same row by comparing all values
+									return Object.keys(matchRow).every(key => row[key] === matchRow[key]);
+								});
+								
+								if (isMatch) {
+									updatedCount++;
+									return { ...row, ...finalRowData };
+								}
+								return row;
+							});
+							
 							const newSheet = XLSX.utils.json_to_sheet(data, { header: newHeaders });
 							workbook.Sheets[currentSheetName] = newSheet;
 							writeWorkbook(workbook, filePath, fileName);
-							returnData.push({ json: { success: true, message: 'Row updated.' } });
+							returnData.push({ json: { success: true, message: `${updatedCount} row(s) updated.` } });
+						} else if (operation === 'deleteRows') {
+							// Get filter criteria
+							const deleteFilters = this.getNodeParameter('updateFilters', i, {}) as {
+								conditions?: Array<{
+									column: string;
+									operator: string;
+									value: string;
+								}>;
+							};
+							
+							// Find rows to delete
+							const rowsToDelete = applyFilters(data, deleteFilters);
+							
+							if (rowsToDelete.length === 0) {
+								throw new NodeOperationError(this.getNode(), 'No rows found matching the filter criteria.');
+							}
+							
+							// Filter out rows that match deletion criteria
+							const deletedCount = rowsToDelete.length;
+							data = data.filter(row => {
+								const shouldDelete = rowsToDelete.some(deleteRow => {
+									// Check if this is the same row by comparing all values
+									return Object.keys(deleteRow).every(key => row[key] === deleteRow[key]);
+								});
+								return !shouldDelete;
+							});
+							
+							// Keep headers even if all data is deleted
+							const headers = (XLSX.utils.sheet_to_json(sheet, { header: 1 })[0] as string[]) || [];
+							const newSheet = XLSX.utils.json_to_sheet(data, { header: headers });
+							workbook.Sheets[currentSheetName] = newSheet;
+							writeWorkbook(workbook, filePath, fileName);
+							returnData.push({ json: { success: true, message: `${deletedCount} row(s) deleted.` } });
 						}
 					} else if (operation === 'clearData') {
 						const headers = (XLSX.utils.sheet_to_json(sheet, { header: 1 })[0] as string[]) || [];
