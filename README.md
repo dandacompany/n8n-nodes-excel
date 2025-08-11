@@ -17,7 +17,7 @@ A powerful n8n community node that lets you work with Excel (.xlsx) and CSV (.cs
 - **Read**: Query data with advanced filtering, sorting, and pagination
 - **Add Row**: Insert new records with dynamic column mapping
 - **Update Rows**: Modify multiple records using filter criteria
-- **Delete Rows**: Remove records matching filter conditions
+- **Delete Rows**: Remove records matching filter conditions (filters required)
 - **Clear Data**: Remove all data while preserving headers
 
 ### 🤖 AI Agent Tool Compatibility

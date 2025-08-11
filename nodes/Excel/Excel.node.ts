@@ -409,18 +409,91 @@ export class Excel implements INodeType {
 					},
 				],
 			},
-			// Filters for Update Rows and Delete Rows operations
+			// Filters for Update Rows operations
 			{
 				displayName: 'Filters',
 				name: 'updateFilters',
 				type: 'fixedCollection',
 				placeholder: 'Add Filter',
 				default: {},
-				description: 'Filter rows to update or delete',
+				description: 'Filter rows to update. If no filter is provided, all rows will be updated.',
 				displayOptions: {
 					show: {
 						resource: ['data'],
-						operation: ['updateRows', 'deleteRows'],
+						operation: ['updateRows'],
+					},
+				},
+				typeOptions: {
+					multipleValues: true,
+				},
+				options: [
+					{
+						displayName: 'Filter',
+						name: 'conditions',
+						values: [
+							{
+								displayName: 'Column',
+								name: 'column',
+								type: 'options',
+								default: '',
+								description: 'Column name to filter by',
+								required: true,
+								typeOptions: {
+									loadOptionsMethod: 'getColumns',
+									loadOptionsDependsOn: ['fileName', 'sheetName'],
+									allowCustomValue: true,
+								},
+							},
+							{
+								displayName: 'Operator',
+								name: 'operator',
+								type: 'options',
+								options: [
+									{ name: 'Contains', value: 'contains' },
+									{ name: 'Not Contains', value: 'notContains' },
+									{ name: 'Equals', value: 'equals' },
+									{ name: 'Not Equals', value: 'notEquals' },
+									{ name: 'Starts With', value: 'startsWith' },
+									{ name: 'Ends With', value: 'endsWith' },
+									{ name: 'Is Empty', value: 'isEmpty' },
+									{ name: 'Is Not Empty', value: 'isNotEmpty' },
+									{ name: 'Greater Than', value: 'greaterThan' },
+									{ name: 'Less Than', value: 'lessThan' },
+									{ name: 'Greater or Equal', value: 'greaterOrEqual' },
+									{ name: 'Less or Equal', value: 'lessOrEqual' },
+								],
+								default: 'equals',
+								description: 'Filter operator',
+							},
+							{
+								displayName: 'Value',
+								name: 'value',
+								type: 'string',
+								default: '',
+								description: 'Value to compare (not needed for isEmpty/isNotEmpty)',
+								displayOptions: {
+									hide: {
+										operator: ['isEmpty', 'isNotEmpty'],
+									},
+								},
+							},
+						],
+					},
+				],
+			},
+			// Filters for Delete Rows operations (Required)
+			{
+				displayName: 'Filters',
+				name: 'deleteFilters',
+				type: 'fixedCollection',
+				placeholder: 'Add Filter',
+				default: {},
+				description: 'Filter rows to delete. At least one filter is required. Use Clear Data to delete all rows.',
+				required: true,
+				displayOptions: {
+					show: {
+						resource: ['data'],
+						operation: ['deleteRows'],
 					},
 				},
 				typeOptions: {
@@ -964,7 +1037,7 @@ Example: {"operation": "read_data", "filename": "data.xlsx", "sheet": "Sheet1", 
 							returnData.push({ json: { success: true, message: `${updatedCount} row(s) updated.` } });
 						} else if (operation === 'deleteRows') {
 							// Get filter criteria
-							const deleteFilters = this.getNodeParameter('updateFilters', i, {}) as {
+							const deleteFilters = this.getNodeParameter('deleteFilters', i, {}) as {
 								conditions?: Array<{
 									column: string;
 									operator: string;
@@ -972,31 +1045,28 @@ Example: {"operation": "read_data", "filename": "data.xlsx", "sheet": "Sheet1", 
 								}>;
 							};
 							
-							let deletedCount = 0;
-							
-							// If no filters provided, delete all rows
+							// Filters are required for Delete Rows
 							if (!deleteFilters.conditions || deleteFilters.conditions.length === 0) {
-								deletedCount = data.length;
-								data = [];
-							} else {
-								// Find rows to delete based on filters
-								const rowsToDelete = applyFilters(data, deleteFilters);
-								
-								if (rowsToDelete.length === 0) {
-									returnData.push({ json: { success: false, message: 'No rows found matching the filter criteria.' } });
-									continue;
-								}
-								
-								// Filter out rows that match deletion criteria
-								deletedCount = rowsToDelete.length;
-								data = data.filter(row => {
-									const shouldDelete = rowsToDelete.some(deleteRow => {
-										// Check if this is the same row by comparing all values
-										return Object.keys(deleteRow).every(key => row[key] === deleteRow[key]);
-									});
-									return !shouldDelete;
-								});
+								throw new NodeOperationError(this.getNode(), 'At least one filter is required for Delete Rows operation. Use Clear Data to delete all rows.');
 							}
+							
+							// Find rows to delete based on filters
+							const rowsToDelete = applyFilters(data, deleteFilters);
+							
+							if (rowsToDelete.length === 0) {
+								returnData.push({ json: { success: false, message: 'No rows found matching the filter criteria.' } });
+								continue;
+							}
+							
+							// Filter out rows that match deletion criteria
+							const deletedCount = rowsToDelete.length;
+							data = data.filter(row => {
+								const shouldDelete = rowsToDelete.some(deleteRow => {
+									// Check if this is the same row by comparing all values
+									return Object.keys(deleteRow).every(key => row[key] === deleteRow[key]);
+								});
+								return !shouldDelete;
+							});
 							
 							// Keep headers even if all data is deleted
 							const headers = (XLSX.utils.sheet_to_json(sheet, { header: 1 })[0] as string[]) || [];
