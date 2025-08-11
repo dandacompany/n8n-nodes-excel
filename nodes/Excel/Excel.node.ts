@@ -11,6 +11,7 @@ import {
 	INodeProperties,
 	INodeParameters,
 } from 'n8n-workflow';
+import { DynamicTool } from '@langchain/core/tools';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as XLSX from 'xlsx';
@@ -75,24 +76,28 @@ function writeWorkbook(workbook: XLSX.WorkBook, filePath: string, fileName: stri
 
 export class Excel implements INodeType {
 	description: INodeTypeDescription = {
-		displayName: 'Excel/CSV File IO',
+		displayName: 'Excel/CSV',
 		name: 'excel',
 		icon: 'file:spreadsheet.png',
-		group: ['input'],
+		group: ['input', 'tools'],
 		version: 1,
-		description: 'Operate on local Excel/CSV files like a database',
+		description: 'Operate on local Excel/CSV files like a database. Compatible with AI Agent nodes as a tool.',
 		defaults: {
-			name: 'Excel/CSV IO',
+			name: 'Excel/CSV',
 		},
 		inputs: ['main'] as NodeConnectionType[],
 		outputs: ['main'] as NodeConnectionType[],
+		usableAsTool: true,
 		properties: [
 			{
 				displayName: 'Resource',
 				name: 'resource',
 				type: 'options',
 				noDataExpression: true,
-				options: [ { name: 'File', value: 'file' }, { name: 'Data', value: 'data' } ],
+				options: [ 
+					{ name: 'File', value: 'file' }, 
+					{ name: 'Data', value: 'data' }
+				],
 				default: 'data',
 			},
 			{
@@ -123,15 +128,41 @@ export class Excel implements INodeType {
 				],
 				default: 'read',
 			},
+			// File Name for Data operations (with AI support)
+			{
+				displayName: 'File Name',
+				name: 'fileName',
+				type: 'options',
+				description: 'Choose or specify the file to operate on.',
+				required: true,
+				typeOptions: {
+					loadOptionsMethod: 'getFiles',
+					allowCustomValue: true,
+				},
+				default: '',
+				displayOptions: {
+					show: {
+						resource: ['data'],
+					},
+				},
+			},
+			// File Name for File Delete/Download operations
 			{
 				displayName: 'File Name',
 				name: 'fileName',
 				type: 'options',
 				description: 'Choose the file to operate on.',
 				required: true,
-				typeOptions: { loadOptionsMethod: 'getFiles' },
+				typeOptions: {
+					loadOptionsMethod: 'getFiles',
+				},
 				default: '',
-				displayOptions: { hide: { operation: ['create', 'upload'] } }
+				displayOptions: {
+					show: {
+						resource: ['file'],
+						operation: ['delete', 'download'],
+					},
+				},
 			},
 			{
 				displayName: 'File Name',
@@ -185,7 +216,7 @@ export class Excel implements INodeType {
 				name: 'sheetName',
 				type: 'options',
 				default: 'Sheet1',
-				description: 'Sheet to operate on. Required for .xlsx files.',
+				description: 'Sheet to operate on. Required for .xlsx files. Can be specified manually for AI agents.',
 				displayOptions: {
 					show: {
 						resource: [
@@ -198,15 +229,139 @@ export class Excel implements INodeType {
 						]
 					}
 				},
-				typeOptions: { loadOptionsMethod: 'getSheetNames', loadOptionsDependsOn: ['fileName'] },
+				typeOptions: {
+					loadOptionsMethod: 'getSheetNames',
+					loadOptionsDependsOn: ['fileName'],
+					allowCustomValue: true,
+				},
 			},
 			{
 				displayName: 'Limit',
 				name: 'limit',
 				type: 'number',
-				typeOptions: { minValue: 1 },
+				typeOptions: { minValue: 0 },
 				default: 10,
+				description: 'Number of rows to return. Use 0 for all rows.',
 				displayOptions: { show: { operation: ['read'] } },
+			},
+			// Filter options for Read operation
+			{
+				displayName: 'Filters',
+				name: 'filters',
+				type: 'fixedCollection',
+				placeholder: 'Add Filter',
+				default: {},
+				description: 'Filter rows based on column values',
+				displayOptions: {
+					show: {
+						resource: ['data'],
+						operation: ['read'],
+					},
+				},
+				typeOptions: {
+					multipleValues: true,
+				},
+				options: [
+					{
+						displayName: 'Filter',
+						name: 'conditions',
+						values: [
+							{
+								displayName: 'Column',
+								name: 'column',
+								type: 'options',
+								default: '',
+								description: 'Column name to filter by',
+								required: true,
+								typeOptions: {
+									loadOptionsMethod: 'getColumns',
+									loadOptionsDependsOn: ['fileName', 'sheetName'],
+									allowCustomValue: true,
+								},
+							},
+							{
+								displayName: 'Operator',
+								name: 'operator',
+								type: 'options',
+								options: [
+									{ name: 'Contains', value: 'contains' },
+									{ name: 'Not Contains', value: 'notContains' },
+									{ name: 'Equals', value: 'equals' },
+									{ name: 'Not Equals', value: 'notEquals' },
+									{ name: 'Starts With', value: 'startsWith' },
+									{ name: 'Ends With', value: 'endsWith' },
+									{ name: 'Is Empty', value: 'isEmpty' },
+									{ name: 'Is Not Empty', value: 'isNotEmpty' },
+									{ name: 'Greater Than', value: 'greaterThan' },
+									{ name: 'Less Than', value: 'lessThan' },
+									{ name: 'Greater or Equal', value: 'greaterOrEqual' },
+									{ name: 'Less or Equal', value: 'lessOrEqual' },
+								],
+								default: 'contains',
+								description: 'Filter operator',
+							},
+							{
+								displayName: 'Value',
+								name: 'value',
+								type: 'string',
+								default: '',
+								description: 'Value to compare (not needed for isEmpty/isNotEmpty)',
+								displayOptions: {
+									hide: {
+										operator: ['isEmpty', 'isNotEmpty'],
+									},
+								},
+							},
+						],
+					},
+				],
+			},
+			{
+				displayName: 'Sort',
+				name: 'sort',
+				type: 'fixedCollection',
+				placeholder: 'Add Sort',
+				default: {},
+				description: 'Sort rows by column values',
+				displayOptions: {
+					show: {
+						resource: ['data'],
+						operation: ['read'],
+					},
+				},
+				typeOptions: {
+					multipleValues: false,
+				},
+				options: [
+					{
+						displayName: 'Sort',
+						name: 'fields',
+						values: [
+							{
+								displayName: 'Column',
+								name: 'column',
+								type: 'options',
+								default: '',
+								description: 'Column to sort by',
+								typeOptions: {
+									loadOptionsMethod: 'getColumns',
+									loadOptionsDependsOn: ['fileName', 'sheetName'],
+									allowCustomValue: true,
+								},
+							},
+							{
+								displayName: 'Direction',
+								name: 'direction',
+								type: 'options',
+								options: [
+									{ name: 'Ascending', value: 'asc' },
+									{ name: 'Descending', value: 'desc' },
+								],
+								default: 'asc',
+							},
+						],
+					},
+				],
 			},
 			{
 				displayName: 'Key Column',
@@ -378,6 +533,29 @@ export class Excel implements INodeType {
 					return [];
 				}
 			},
+			async getColumns(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
+				const fileName = this.getCurrentNodeParameter('fileName') as string;
+				if (!fileName) return [];
+
+				const filePath = path.join(dataDir, fileName);
+				if (!fs.existsSync(filePath)) return [];
+
+				try {
+					const workbook = fileName.toLowerCase().endsWith('.csv') ? await readCsvAsWorkbook(filePath) : XLSX.readFile(filePath);
+					let sheetName = fileName.toLowerCase().endsWith('.csv') 
+						? 'Sheet1' 
+						: (this.getCurrentNodeParameter('sheetName') as string || workbook.SheetNames[0]);
+
+					if (!sheetName || !workbook.Sheets[sheetName]) return [];
+
+					const sheet = workbook.Sheets[sheetName];
+					const headerData = (XLSX.utils.sheet_to_json(sheet, { header: 1 })[0] as string[]) || [];
+					
+					return headerData.filter(h => h).map(h => ({ name: h, value: h }));
+				} catch (e) {
+					return [];
+				}
+			},
 		},
 	};
 
@@ -388,6 +566,90 @@ export class Excel implements INodeType {
 		for (let i = 0; i < items.length; i++) {
 			try {
 				const resource = this.getNodeParameter('resource', i) as string;
+
+				// Handle AI Tool mode
+				if (resource === 'tool') {
+					const toolName = this.getNodeParameter('toolName', i) as string;
+					const toolDescription = this.getNodeParameter('toolDescription', i) as string;
+					const availableFiles = this.getNodeParameter('availableFiles', i, '') as string;
+
+					// Build tool description with available files and operations
+					const files = availableFiles ? availableFiles.split(',').map(f => f.trim()) : fs.readdirSync(dataDir).filter(f => 
+						f.toLowerCase().endsWith('.xlsx') || f.toLowerCase().endsWith('.csv')
+					);
+					let description = toolDescription;
+					if (files.length > 0) {
+						description += `\n\nAvailable files: ${files.join(', ')}`;
+					}
+					description += `\n\nSupported operations:
+- read_data: Read data from a file (specify filename and optionally limit)
+- add_row: Add a new row to a file (specify filename, sheet name for xlsx, and data)
+- update_row: Update an existing row (specify filename, sheet name, key column, key value, and new data)
+- create_file: Create a new file (specify filename, file type, and optional columns)
+- list_files: List all available Excel/CSV files
+- get_file_info: Get information about a specific file (sheets, columns, etc.)
+
+Input format: JSON string with 'operation', 'filename', and other relevant parameters.
+Example: {"operation": "read_data", "filename": "data.xlsx", "sheet": "Sheet1", "limit": 10}`;
+
+					// Create the DynamicTool for AI agents
+					const excelTool = new DynamicTool({
+						name: toolName,
+						description: description,
+						func: async (input: string) => {
+							try {
+								const params = JSON.parse(input);
+								const operation = params.operation;
+
+								switch (operation) {
+									case 'list_files':
+										const fileList = fs.readdirSync(dataDir).filter(f => 
+											f.toLowerCase().endsWith('.xlsx') || f.toLowerCase().endsWith('.csv')
+										);
+										return fileList.length === 0 
+											? 'No Excel or CSV files found in the data directory.'
+											: `Available files:\n${fileList.map(f => `- ${f}`).join('\n')}`;
+									
+									case 'read_data':
+										const { filename, sheet, limit = 10 } = params;
+										if (!filename) return 'Error: filename parameter is required for read_data operation.';
+										
+										const filePath = path.join(dataDir, filename);
+										if (!fs.existsSync(filePath)) return `Error: File '${filename}' not found.`;
+										
+										const workbook = filename.toLowerCase().endsWith('.csv') 
+											? await readCsvAsWorkbook(filePath) 
+											: XLSX.readFile(filePath);
+										
+										const sheetName = getSheetName(workbook, sheet || 'Sheet1');
+										if (!sheetName) return `Error: Sheet '${sheet}' not found. Available sheets: ${workbook.SheetNames.join(', ')}`;
+
+										const worksheet = workbook.Sheets[sheetName];
+										const data = XLSX.utils.sheet_to_json(worksheet, { defval: '' }) as IDataObject[];
+										const limitedData = data.slice(0, Math.min(limit, 100));
+
+										return `Data from '${filename}' (${sheet || sheetName}):\n${JSON.stringify(limitedData, null, 2)}\n\nTotal rows: ${data.length}, Showing: ${limitedData.length}`;
+									
+									default:
+										return `Error: Unknown operation '${operation}'. Supported operations: list_files, read_data, add_row, update_row, create_file, get_file_info`;
+								}
+							} catch (error) {
+								if (error instanceof SyntaxError) {
+									return `Error: Invalid JSON input. Please provide a valid JSON string with operation and parameters.`;
+								}
+								return `Error: ${error instanceof Error ? error.message : String(error)}`;
+							}
+						},
+					});
+
+					returnData.push({
+						json: { tool: excelTool },
+						pairedItem: { item: i },
+					});
+
+					continue;
+				}
+
 				const operation = this.getNodeParameter('operation', i) as string;
 
 				if (resource === 'file') {
@@ -474,8 +736,86 @@ export class Excel implements INodeType {
 
 					if (operation === 'read') {
 						const limit = this.getNodeParameter('limit', i, 10) as number;
-						const data = XLSX.utils.sheet_to_json(sheet, { defval: '' }) as IDataObject[];
-						returnData.push(...this.helpers.returnJsonArray(data.slice(0, limit)));
+						let data = XLSX.utils.sheet_to_json(sheet, { defval: '' }) as IDataObject[];
+						
+						// Apply filters
+						const filters = this.getNodeParameter('filters', i, {}) as {
+							conditions?: Array<{
+								column: string;
+								operator: string;
+								value: string;
+							}>;
+						};
+						
+						if (filters.conditions && filters.conditions.length > 0) {
+							data = data.filter(row => {
+								return filters.conditions!.every(filter => {
+									const cellValue = String(row[filter.column] || '');
+									const filterValue = String(filter.value || '');
+									
+									switch (filter.operator) {
+										case 'contains':
+											return cellValue.toLowerCase().includes(filterValue.toLowerCase());
+										case 'notContains':
+											return !cellValue.toLowerCase().includes(filterValue.toLowerCase());
+										case 'equals':
+											return cellValue === filterValue;
+										case 'notEquals':
+											return cellValue !== filterValue;
+										case 'startsWith':
+											return cellValue.toLowerCase().startsWith(filterValue.toLowerCase());
+										case 'endsWith':
+											return cellValue.toLowerCase().endsWith(filterValue.toLowerCase());
+										case 'isEmpty':
+											return cellValue === '' || cellValue === null || cellValue === undefined;
+										case 'isNotEmpty':
+											return cellValue !== '' && cellValue !== null && cellValue !== undefined;
+										case 'greaterThan':
+											return parseFloat(cellValue) > parseFloat(filterValue);
+										case 'lessThan':
+											return parseFloat(cellValue) < parseFloat(filterValue);
+										case 'greaterOrEqual':
+											return parseFloat(cellValue) >= parseFloat(filterValue);
+										case 'lessOrEqual':
+											return parseFloat(cellValue) <= parseFloat(filterValue);
+										default:
+											return true;
+									}
+								});
+							});
+						}
+						
+						// Apply sorting
+						const sort = this.getNodeParameter('sort', i, {}) as {
+							fields?: {
+								column: string;
+								direction: 'asc' | 'desc';
+							};
+						};
+						
+						if (sort.fields && sort.fields.column) {
+							data.sort((a, b) => {
+								const aVal = String(a[sort.fields!.column] || '');
+								const bVal = String(b[sort.fields!.column] || '');
+								
+								// Try to compare as numbers first
+								const aNum = parseFloat(aVal);
+								const bNum = parseFloat(bVal);
+								
+								let comparison = 0;
+								if (!isNaN(aNum) && !isNaN(bNum)) {
+									comparison = aNum - bNum;
+								} else {
+									comparison = aVal.localeCompare(bVal);
+								}
+								
+								return sort.fields!.direction === 'desc' ? -comparison : comparison;
+							});
+						}
+						
+						// Apply limit (0 means all rows)
+						const finalData = limit === 0 ? data : data.slice(0, limit);
+						returnData.push(...this.helpers.returnJsonArray(finalData));
 					} else if (operation === 'addRow' || operation === 'updateRow') {
 						const rowDataCollection = this.getNodeParameter('rowData', i) as { entries: Array<{ column: string; value: any; }> };
 						const finalRowData: IDataObject = {};
@@ -533,4 +873,5 @@ export class Excel implements INodeType {
 		}
 		return [returnData];
 	}
+
 }

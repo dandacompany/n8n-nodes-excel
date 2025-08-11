@@ -6,7 +6,7 @@
 
 ## 주요 기능
 
-이 노드는 **파일(File)**과 **데이터(Data)**, 두 가지 리소스를 중심으로 강력한 기능을 제공합니다.
+이 노드는 **파일(File)**, **데이터(Data)**, 그리고 **AI Tool**, 세 가지 리소스를 중심으로 강력한 기능을 제공합니다.
 
 ### 파일 (File) 관리
 
@@ -21,6 +21,25 @@
 - **행 추가 (Add Row):** 파일과 시트를 선택하면, **해당 시트의 모든 컬럼이 자동으로 입력 필드로 표시됩니다.** 사용자는 각 컬럼에 들어갈 값만 입력하면 간편하게 새로운 행을 추가할 수 있습니다.
 - **행 업데이트 (Update Row):** `Key Column`(고유 식별자 컬럼)과 `Key Value`(값)를 기준으로 특정 행을 찾아 데이터를 수정합니다. 행 추가와 마찬가지로, **컬럼 필드가 자동으로 로드되어** 데이터 수정이 매우 편리합니다.
 - **데이터 초기화 (Clear Data):** 지정된 시트의 모든 데이터를 삭제하고 헤더(컬럼) 행만 남깁니다.
+
+### AI Tool 통합 🤖
+
+- **AI Agent 호환성:** 이제 Excel/CSV 노드를 AI Agent 노드의 도구로 사용할 수 있습니다.
+- **자연어 인터페이스:** AI가 자연어로 스프레드시트 작업을 수행할 수 있습니다.
+- **지원되는 AI 작업:**
+  - 파일 목록 조회 (`list_files`)
+  - 데이터 읽기 (`read_data`) 
+  - 행 추가 (`add_row`)
+  - 행 업데이트 (`update_row`)
+  - 파일 생성 (`create_file`)
+  - 파일 정보 조회 (`get_file_info`)
+
+**사용 예시:**
+```
+AI: "Show me all available files and read the first 5 rows from sales_data.xlsx"
+AI: "Add a new customer with name 'John Doe' and email 'john@example.com' to customer_list.csv"
+AI: "Update the price of product ID 'PROD123' to 29.99 in inventory.xlsx"
+```
 
 ## 설치 방법
 
@@ -77,6 +96,41 @@ npm install n8n-nodes-excel
 3. n8n을 재시작합니다.
 
 설치가 완료되면 n8n 편집기의 노드 패널에서 `Excel/CSV File IO` 노드를 검색하여 사용할 수 있습니다.
+
+## AI Agent와 함께 사용하기
+
+### 기본 설정
+
+1. **Excel/CSV 노드 추가:** 워크플로우에 Excel/CSV 노드를 추가하고 Resource를 "AI Tool"로 설정합니다.
+2. **AI Agent 노드 연결:** AI Agent 노드를 추가하고 Excel/CSV 노드의 "ai" 출력과 연결합니다.
+3. **도구 설정:** AI Agent 노드에서 Tools 섹션에 Excel 노드를 연결합니다.
+
+### 설정 예시
+
+```
+Manual Trigger → Excel/CSV Tool → AI Agent
+```
+
+**Excel/CSV 노드 설정:**
+- Resource: `AI Tool`
+- Tool Name: `excel_handler`
+- Tool Description: `Excel/CSV 파일을 관리하는 도구입니다. 데이터 읽기, 추가, 수정, 파일 생성 등이 가능합니다.`
+- Available Files: `sales_data.xlsx, customer_list.csv` (선택사항)
+
+**AI Agent 노드 설정:**
+- Model: OpenAI GPT-4 또는 다른 LLM
+- Tools: Excel/CSV 노드를 연결
+
+### 사용 가능한 명령어
+
+AI Agent는 다음과 같은 자연어 명령어를 이해합니다:
+
+- **파일 탐색:** "어떤 파일들이 있나요?", "available files 보여주세요"
+- **데이터 읽기:** "sales_data.xlsx에서 처음 10행을 읽어주세요"
+- **데이터 추가:** "고객 목록에 새 고객을 추가해주세요"
+- **데이터 수정:** "제품 ID가 123인 항목의 가격을 수정해주세요"
+- **파일 생성:** "새로운 재고 관리 파일을 만들어주세요"
+- **파일 정보:** "customer_list.csv 파일 정보를 알려주세요"
 
 ## 개발자용 설정
 

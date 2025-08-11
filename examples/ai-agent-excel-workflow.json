@@ -1,0 +1,76 @@
+{
+  "name": "AI Agent Excel Tool Demo",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "manual-trigger",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "position": [260, 300],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "resource": "tool",
+        "toolName": "excel_handler",
+        "toolDescription": "A powerful tool for managing Excel and CSV files. Can read data, add rows, update existing data, create new files, and provide file information. Perfect for data manipulation tasks.",
+        "availableFiles": "sales_data.xlsx, customer_list.csv, inventory.xlsx"
+      },
+      "id": "excel-tool",
+      "name": "Excel AI Tool",
+      "type": "n8n-nodes-excel.excel",
+      "position": [480, 300],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "model": "gpt-4",
+        "messages": {
+          "messageHistory": [
+            {
+              "role": "system",
+              "content": "You are a helpful assistant that can work with Excel and CSV files. Use the excel_handler tool to read, modify, and analyze spreadsheet data when users request it."
+            },
+            {
+              "role": "user",
+              "content": "Please list all available files and then read the first 5 rows from sales_data.xlsx"
+            }
+          ]
+        },
+        "tools": "={{ [$node['Excel AI Tool'].json] }}"
+      },
+      "id": "ai-agent",
+      "name": "AI Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "position": [700, 300],
+      "typeVersion": 1
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Excel AI Tool",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Excel AI Tool": {
+      "ai": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
