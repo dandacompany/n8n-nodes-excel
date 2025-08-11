@@ -409,19 +409,77 @@ export class Excel implements INodeType {
 					},
 				],
 			},
+			// Filters for Update Rows and Delete Rows operations
 			{
-				displayName: 'Key Column',
-				name: 'keyColumn',
-				type: 'string',
-				default: 'ID',
-				displayOptions: { show: { operation: ['updateRow'] } },
-			},
-			{
-				displayName: 'Key Value',
-				name: 'keyValue',
-				type: 'string',
-				default: '',
-				displayOptions: { show: { operation: ['updateRow'] } },
+				displayName: 'Filters',
+				name: 'updateFilters',
+				type: 'fixedCollection',
+				placeholder: 'Add Filter',
+				default: {},
+				description: 'Filter rows to update or delete',
+				displayOptions: {
+					show: {
+						resource: ['data'],
+						operation: ['updateRows', 'deleteRows'],
+					},
+				},
+				typeOptions: {
+					multipleValues: true,
+				},
+				options: [
+					{
+						displayName: 'Filter',
+						name: 'conditions',
+						values: [
+							{
+								displayName: 'Column',
+								name: 'column',
+								type: 'options',
+								default: '',
+								description: 'Column name to filter by',
+								required: true,
+								typeOptions: {
+									loadOptionsMethod: 'getColumns',
+									loadOptionsDependsOn: ['fileName', 'sheetName'],
+									allowCustomValue: true,
+								},
+							},
+							{
+								displayName: 'Operator',
+								name: 'operator',
+								type: 'options',
+								options: [
+									{ name: 'Contains', value: 'contains' },
+									{ name: 'Not Contains', value: 'notContains' },
+									{ name: 'Equals', value: 'equals' },
+									{ name: 'Not Equals', value: 'notEquals' },
+									{ name: 'Starts With', value: 'startsWith' },
+									{ name: 'Ends With', value: 'endsWith' },
+									{ name: 'Is Empty', value: 'isEmpty' },
+									{ name: 'Is Not Empty', value: 'isNotEmpty' },
+									{ name: 'Greater Than', value: 'greaterThan' },
+									{ name: 'Less Than', value: 'lessThan' },
+									{ name: 'Greater or Equal', value: 'greaterOrEqual' },
+									{ name: 'Less or Equal', value: 'lessOrEqual' },
+								],
+								default: 'equals',
+								description: 'Filter operator',
+							},
+							{
+								displayName: 'Value',
+								name: 'value',
+								type: 'string',
+								default: '',
+								description: 'Value to compare (not needed for isEmpty/isNotEmpty)',
+								displayOptions: {
+									hide: {
+										operator: ['isEmpty', 'isNotEmpty'],
+									},
+								},
+							},
+						],
+					},
+				],
 			},
 			{
 				displayName: 'Row Data',
