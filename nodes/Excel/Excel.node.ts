@@ -928,11 +928,19 @@ Example: {"operation": "read_data", "filename": "data.xlsx", "sheet": "Sheet1", 
 								}>;
 							};
 							
-							// Find rows to update
-							const rowsToUpdate = applyFilters(data, updateFilters);
+							let rowsToUpdate: IDataObject[];
 							
-							if (rowsToUpdate.length === 0) {
-								throw new NodeOperationError(this.getNode(), 'No rows found matching the filter criteria.');
+							// If no filters provided, update all rows
+							if (!updateFilters.conditions || updateFilters.conditions.length === 0) {
+								rowsToUpdate = data;
+							} else {
+								// Find rows to update based on filters
+								rowsToUpdate = applyFilters(data, updateFilters);
+								
+								if (rowsToUpdate.length === 0) {
+									returnData.push({ json: { success: false, message: 'No rows found matching the filter criteria.' } });
+									continue;
+								}
 							}
 							
 							// Update matching rows
@@ -964,22 +972,31 @@ Example: {"operation": "read_data", "filename": "data.xlsx", "sheet": "Sheet1", 
 								}>;
 							};
 							
-							// Find rows to delete
-							const rowsToDelete = applyFilters(data, deleteFilters);
+							let deletedCount = 0;
 							
-							if (rowsToDelete.length === 0) {
-								throw new NodeOperationError(this.getNode(), 'No rows found matching the filter criteria.');
-							}
-							
-							// Filter out rows that match deletion criteria
-							const deletedCount = rowsToDelete.length;
-							data = data.filter(row => {
-								const shouldDelete = rowsToDelete.some(deleteRow => {
-									// Check if this is the same row by comparing all values
-									return Object.keys(deleteRow).every(key => row[key] === deleteRow[key]);
+							// If no filters provided, delete all rows
+							if (!deleteFilters.conditions || deleteFilters.conditions.length === 0) {
+								deletedCount = data.length;
+								data = [];
+							} else {
+								// Find rows to delete based on filters
+								const rowsToDelete = applyFilters(data, deleteFilters);
+								
+								if (rowsToDelete.length === 0) {
+									returnData.push({ json: { success: false, message: 'No rows found matching the filter criteria.' } });
+									continue;
+								}
+								
+								// Filter out rows that match deletion criteria
+								deletedCount = rowsToDelete.length;
+								data = data.filter(row => {
+									const shouldDelete = rowsToDelete.some(deleteRow => {
+										// Check if this is the same row by comparing all values
+										return Object.keys(deleteRow).every(key => row[key] === deleteRow[key]);
+									});
+									return !shouldDelete;
 								});
-								return !shouldDelete;
-							});
+							}
 							
 							// Keep headers even if all data is deleted
 							const headers = (XLSX.utils.sheet_to_json(sheet, { header: 1 })[0] as string[]) || [];
